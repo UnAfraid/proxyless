@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "proxyless-server.fullname" . }}
+  labels:
+    {{- include "proxyless-server.labels" . | nindent 4 }}
+spec:
+  type: "ClusterIP"
+  ports:
+    - name: "grpc-app"
+      port: 9090
+      targetPort: "grpc-app"
+      protocol: TCP
+  selector:
+    {{- include "proxyless-server.selectorLabels" . | nindent 4 }}
