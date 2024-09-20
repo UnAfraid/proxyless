@@ -17,7 +17,7 @@ replicas: 3
 
 podAnnotations:
   inject.istio.io/templates: grpc-agent
-  proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
+#  proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
 
 podSecurityContext: {}
   # fsGroup: 2000

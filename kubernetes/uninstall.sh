@@ -1,18 +1,19 @@
 #!/bin/bash
 
+CONTEXT="kind-proxyless-poc"
 NAMESPACE="proxyless"
-STRICT="false"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    -n|--namespace)
-      NAMESPACE="$2"
+    --context)
+      CONTEXT="$2"
       shift # past argument
       shift # past value
       ;;
-    -s|--strict)
-      STRICT="true"
+    -|--namespace)
+      NAMESPACE="$2"
       shift # past argument
+      shift # past value
       ;;
     *)
       echo "Invalid option: $1"
@@ -20,12 +21,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-helm uninstall -n "$NAMESPACE" proxyless-client
-helm uninstall -n "$NAMESPACE" proxyless-server
+helm --kube-context "$CONTEXT" uninstall -n "$NAMESPACE" proxyless-client
+helm --kube-context "$CONTEXT" uninstall -n "$NAMESPACE" proxyless-server
 
-if [[ "$STRICT" == "true" ]]; then
-  kubectl -n "$NAMESPACE" delete -f manifests/destination_rules.yaml
-  kubectl -n "$NAMESPACE" delete -f manifests/peer_authorization.yaml
-fi
-
-kubectl delete namespace "$NAMESPACE"
+kubectl --context "$CONTEXT" delete namespace "$NAMESPACE"

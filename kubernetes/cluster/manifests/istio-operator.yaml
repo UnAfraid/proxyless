@@ -1,0 +1,47 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio-operator
+  namespace: istio-system
+spec:
+  profile: default
+  meshConfig:
+    enableTracing: false
+  components:
+    cni:
+      enabled: true
+      namespace: istio-system
+    pilot:
+      k8s:
+        hpaSpec:
+          minReplicas: 2
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+        label:
+          istio: istio-ingressgateway
+        k8s:
+          hpaSpec:
+            minReplicas: 2
+          service:
+            ports:
+              - name: http2
+                port: 80
+                targetPort: 8080
+              - name: https
+                port: 443
+                targetPort: 8443
+      - name: istio-egressgateway
+        enabled: false
+  values:
+    global:
+      proxy:
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+    telemetry:
+      enabled: false

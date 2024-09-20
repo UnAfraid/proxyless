@@ -1,18 +1,19 @@
 #!/bin/bash
 
+CONTEXT="kind-proxyless-poc"
 NAMESPACE="proxyless"
-STRICT="false"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    -n|--namespace)
-      NAMESPACE="$2"
+    --context)
+      CONTEXT="$2"
       shift # past argument
       shift # past value
       ;;
-    -s|--strict)
-      STRICT="true"
+    -|--namespace)
+      NAMESPACE="$2"
       shift # past argument
+      shift # past value
       ;;
     *)
       echo "Invalid option: $1"
@@ -20,13 +21,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-kubectl get namespace | grep -q "^$NAMESPACE " || kubectl create namespace "$NAMESPACE"
-kubectl label namespace "$NAMESPACE" istio-injection=enabled
+kubectl --context "$CONTEXT" get namespace | grep -q "^$NAMESPACE " || kubectl --context "$CONTEXT" create namespace "$NAMESPACE"
+kubectl --context "$CONTEXT" label namespace "$NAMESPACE" istio-injection=enabled
 
-if [[ "$STRICT" == "true" ]]; then
-  kubectl -n "$NAMESPACE" apply -f manifests/destination_rules.yaml
-  kubectl -n "$NAMESPACE" apply -f manifests/peer_authorization.yaml
-fi
-
-helm upgrade --install -n "$NAMESPACE" proxyless-server charts/server
-helm upgrade --install -n "$NAMESPACE" proxyless-client charts/client
+helm --kube-context "$CONTEXT" upgrade --install -n "$NAMESPACE" proxyless-server charts/server
+helm --kube-context "$CONTEXT" upgrade --install -n "$NAMESPACE" proxyless-client charts/client
