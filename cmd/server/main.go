@@ -15,9 +15,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	xdscreds "google.golang.org/grpc/credentials/xds"
 	pb "google.golang.org/grpc/examples/helloworld/helloworld"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/xds"
-
-	"github.com/UnAfraid/proxyless/internal/health"
 )
 
 type server struct {
@@ -30,12 +30,8 @@ func (s *server) SayHello(_ context.Context, in *pb.HelloRequest) (*pb.HelloRepl
 }
 
 func main() {
-	var (
-		addr            string
-		healthCheckAddr string
-	)
+	var addr string
 	flag.StringVar(&addr, "addr", cmp.Or(os.Getenv("XDS_SERVER_LISTEN_ADDR"), ":9090"), "the address to listen on")
-	flag.StringVar(&healthCheckAddr, "healthCheckAddr", cmp.Or(os.Getenv("HEALTH_CHECK_SERVER_LISTEN_ADDR"), ":9091"), "the health check grpc server to listen on")
 	flag.Parse()
 
 	listener, err := net.Listen("tcp", addr)
@@ -55,6 +51,7 @@ func main() {
 		slog.Error("Failed to create new xDS server", "error", err)
 		return
 	}
+	healthpb.RegisterHealthServer(xdsServer, health.NewServer())
 	pb.RegisterGreeterServer(xdsServer, &server{})
 
 	shutdownChan := make(chan os.Signal, 1)
@@ -69,16 +66,9 @@ func main() {
 		}
 	}()
 
-	closer, err := health.RunHealthCheckServer(healthCheckAddr)
-	if err != nil {
-		slog.Error("Failed to initialize new health grpc server", "error", err)
-		return
-	}
-
 	slog.Info("Server is ready")
 
 	<-shutdownChan
 	slog.Info("Shutting down server...")
-	closer()
 	xdsServer.GracefulStop()
 }

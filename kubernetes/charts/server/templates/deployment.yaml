@@ -37,15 +37,14 @@ spec:
             - name: grpc-app
               containerPort: 9090
               protocol: TCP
-            - name: grpc-health
-              containerPort: 9091
-              protocol: TCP
           livenessProbe:
+            initialDelaySeconds: 120
             grpc:
-              port: 9091
+              port: 9090
           readinessProbe:
+            initialDelaySeconds: 5
             grpc:
-              port: 9091
+              port: 9090
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

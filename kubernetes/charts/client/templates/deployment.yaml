@@ -38,9 +38,11 @@ spec:
               containerPort: 9091
               protocol: TCP
           livenessProbe:
+            initialDelaySeconds: 120
             grpc:
               port: 9091
           readinessProbe:
+            initialDelaySeconds: 5
             grpc:
               port: 9091
           resources:
