@@ -76,7 +76,7 @@ func main() {
 	go func() {
 		slog.Info("Server listening", "addr", addr)
 		if err := xdsServer.Serve(listener); err != nil {
-			slog.Error("Failed to serve: %v", err)
+			slog.Error("Failed to serve", "error", err)
 			os.Exit(1)
 			return
 		}
