@@ -5,5 +5,4 @@ metadata:
   labels:
     {{- include "proxyless-client.labels" . | nindent 4 }}
 data:
-  PROXYLESS_SERVER_ADDR: "proxyless-server:9090"
-  HEALTH_CHECK_SERVER_LISTEN_ADDR: ":9091"
+  PROXYLESS_SERVER_ADDR: {{ .Values.app.proxylessServerAddresses | quote }}

@@ -32,19 +32,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
             - configMapRef:
-                name: {{ include "proxyless-client.name" . }}
-          ports:
-            - name: grpc-health
-              containerPort: 9091
-              protocol: TCP
-          livenessProbe:
-            initialDelaySeconds: 120
-            grpc:
-              port: 9091
-          readinessProbe:
-            initialDelaySeconds: 5
-            grpc:
-              port: 9091
+                name: {{ include "proxyless-client.fullname" . }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

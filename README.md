@@ -22,7 +22,7 @@ cd kubernetes/cluster
 
 ### Install proxyless client and server PoC 
 ```shell
-cd ../
+cd ../workload
 ./install.sh
 ```
 

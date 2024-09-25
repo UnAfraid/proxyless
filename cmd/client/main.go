@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -13,13 +14,12 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	xdscreds "google.golang.org/grpc/credentials/xds"
 	pb "google.golang.org/grpc/examples/helloworld/helloworld"
 	_ "google.golang.org/grpc/xds"
 
-	"github.com/UnAfraid/proxyless/internal/health"
 	"github.com/UnAfraid/proxyless/internal/istio"
 )
 
@@ -38,70 +38,79 @@ func main() {
 		slog.Info("istio proxy is up", "duration", time.Since(startedAt).String())
 	}
 
-	credentials, err := xdscreds.NewClientCredentials(xdscreds.ClientOptions{FallbackCreds: insecure.NewCredentials()})
+	creds, err := xdscreds.NewClientCredentials(xdscreds.ClientOptions{FallbackCreds: insecure.NewCredentials()})
 	if err != nil {
 		slog.Error("Failed to create client-side xDS credentials", "error", err)
 		return
 	}
 
-	if !strings.HasPrefix(target, "xds:///") {
-		target = "xds:///" + target
-	}
-
-	conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(credentials))
-	if err != nil {
-		slog.Error("Failed to initialize new grpc client", "target", target, "error", err)
-		return
-	}
-	defer conn.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	targets := strings.Split(target, ",")
+	for _, t := range targets {
+		if err := greetTarget(ctx, t, creds); err != nil {
+			slog.Error("Failed to handle target", "target", t, "error", err)
+			return
+		}
+	}
+
 	startedAt = time.Now()
-	slog.Info("waiting for grpc server...")
-	if conn.WaitForStateChange(ctx, connectivity.Ready) {
-		slog.Info("grpc server ready", "duration", time.Since(startedAt).String())
-	} else {
-		slog.Warn("grpc server not ready", "duration", time.Since(startedAt).String())
-	}
-
-	closer, err := health.RunHealthCheckServer(healthCheckAddr)
-	if err != nil {
-		slog.Error("Failed to initialize new health grpc server", "error", err)
-		return
-	}
-
-	greeterClient := pb.NewGreeterClient(conn)
 
 	shutdownChan := make(chan os.Signal, 1)
 	signal.Notify(shutdownChan, syscall.SIGTERM, syscall.SIGINT)
 
-	greet := func() {
-		startedAt := time.Now()
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
+	<-shutdownChan
+	cancel()
+}
 
-		helloReply, err := greeterClient.SayHello(ctx, &pb.HelloRequest{Name: uuid.NewString()})
-		if err != nil {
-			slog.Error("Failed to greet", "error", err, "duration", time.Since(startedAt).String())
-			return
-		}
-		slog.Info("Greeting", "message", helloReply.GetMessage(), "target", target, "duration", time.Since(startedAt).String())
+func greetTarget(ctx context.Context, target string, creds credentials.TransportCredentials) error {
+	if !strings.HasPrefix(target, "xds:///") {
+		target = "xds:///" + target
 	}
 
-	greet()
-
-	ticker := time.NewTicker(5 * time.Second)
-	for {
-		select {
-		case <-shutdownChan:
-			slog.Info("Shutting down client...")
-			closer()
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			greet()
-		}
+	conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(creds))
+	if err != nil {
+		conn.Close()
+		return fmt.Errorf("failed to connect to grpc server: %w", err)
 	}
+
+	greeterClient := pb.NewGreeterClient(conn)
+
+	if err := greet(ctx, greeterClient, target); err != nil {
+		conn.Close()
+		return err
+	}
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		for {
+			select {
+			case <-ctx.Done():
+				slog.Info("Shutting down client...", "target", target)
+				conn.Close()
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				if err := greet(ctx, greeterClient, target); err != nil {
+					slog.ErrorContext(ctx, "Failed to greet", "error", err)
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
+func greet(ctx context.Context, greeterClient pb.GreeterClient, target string) error {
+	startedAt := time.Now()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	helloReply, err := greeterClient.SayHello(ctx, &pb.HelloRequest{Name: uuid.NewString()})
+	if err != nil {
+		return fmt.Errorf("failed say hello: %s - %w", target, err)
+	}
+	slog.Info("Greeting", "message", helloReply.GetMessage(), "target", target, "duration", time.Since(startedAt).String())
+	return nil
 }

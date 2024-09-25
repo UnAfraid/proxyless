@@ -6,4 +6,3 @@ metadata:
     {{- include "proxyless-server.labels" . | nindent 4 }}
 data:
   XDS_SERVER_LISTEN_ADDR: ":9090"
-  HEALTH_CHECK_SERVER_LISTEN_ADDR: ":9091"

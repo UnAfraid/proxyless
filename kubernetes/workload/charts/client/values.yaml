@@ -10,6 +10,9 @@ image:
 
 imagePullSecrets: []
 
+app:
+  proxylessServerAddresses: "proxyless-server-first:9090"
+
 nameOverride: ""
 fullnameOverride: ""
 
@@ -23,12 +26,17 @@ podSecurityContext: {}
   # fsGroup: 2000
 
 securityContext:
+  runAsUser: 1000
+  runAsGroup: 2000
+  runAsNonRoot: false
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  privileged: false
+  seccompProfile:
+    type: RuntimeDefault
   capabilities:
     drop:
-    - ALL
-  readOnlyRootFilesystem: true
-  runAsNonRoot: true
-  runAsUser: 1000
+      - ALL
 
 resources:
   limits:

@@ -32,7 +32,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
             - configMapRef:
-                name: {{ include "proxyless-server.name" . }}
+                name: {{ include "proxyless-server.fullname" . }}
           ports:
             - name: grpc-app
               containerPort: 9090
